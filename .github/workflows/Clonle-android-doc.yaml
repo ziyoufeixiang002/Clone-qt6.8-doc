@@ -1,14 +1,14 @@
 name: Android Docs Text-Only Mirror
 
 on:
-  schedule:
-    - cron: '0 4 * * 1'  # 每周一凌晨4点（避开高峰）
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # 轻量下载，缩短超时
+    timeout-minutes: 30
 
     steps:
       - name: Prepare download directory
@@ -18,7 +18,6 @@ jobs:
         run: |
           cd android-docs-text
           
-          # 生成合规声明（下载前即存在）
           cat > COMPLIANCE.txt <<'EOF'
 ⚠️ STRICT TEXT-ONLY MIRROR - PERSONAL USE ONLY
 • Source: https://developer.android.google.cn/guide/
@@ -29,7 +28,7 @@ jobs:
 • Verified against robots.txt on: $(date -u +%Y-%m-%d)
 EOF
           
-          # 核心：双重过滤策略（目录 + 扩展名）
+          # 修正关键：将 --reject 参数写在单行（YAML 不支持 \ 续行）
           wget \
             --mirror \
             --convert-links \
@@ -42,28 +41,15 @@ EOF
             --no-check-certificate \
             --execute robots=off \
             --restrict-file-names=windows \
-            # 目录级过滤（遵守 robots.txt）
             --exclude-directories=/assets,/sdk,/samples,/training,/reference,/partners,/about,/images,/fonts,/media \
-            # 扩展名级过滤（彻底移除非文本）
-            --reject=\
-jpg,jpeg,png,gif,bmp,svg,webp,ico,apng, \
-mp3,mp4,m4a,wav,avi,mov,flv,webm,mkv, \
-zip,tar,gz,bz2,xz,7z,rar,iso, \
-pdf,doc,docx,xls,xlsx,ppt,pptx, \
-woff,woff2,ttf,eot,otf, \
-exe,dll,so,bin,dat,psd,ai,sketch,fig \
+            --reject=jpg,jpeg,png,gif,bmp,svg,webp,ico,apng,mp3,mp4,m4a,wav,avi,mov,flv,webm,mkv,zip,tar,gz,bz2,xz,7z,rar,iso,pdf,doc,docx,xls,xlsx,ppt,pptx,woff,woff2,ttf,eot,otf,exe,dll,so,bin,dat,psd,ai,sketch,fig \
             https://developer.android.google.cn/guide/
           
-          # 验证过滤效果
           echo "=== FILTERING VERIFICATION ==="
-          echo "Total files downloaded: $(find . -type f | wc -l)"
+          echo "Total files: $(find . -type f | wc -l)"
           echo "Non-text files (should be near zero):"
-          find . -type f \( \
-            -iname "*.jpg" -o -iname "*.png" -o -iname "*.pdf" -o \
-            -iname "*.zip" -o -iname "*.woff" -o -iname "*.mp4" \
-          \) 2>/dev/null | head -5 || echo "✓ None found"
-          echo "Text files retained:"
-          find . -type f \( -iname "*.html" -o -iname "*.css" -o -iname "*.js" -o -iname "*.txt" \) | wc -l
+          find . -type f \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.pdf" -o -iname "*.zip" -o -iname "*.woff" -o -iname "*.mp4" \) 2>/dev/null | head -3 || echo "✓ None found"
+          echo "Text files retained: $(find . -type f \( -iname '*.html' -o -iname '*.css' -o -iname '*.js' -o -iname '*.txt' -o -iname '*.json' -o -iname '*.xml' \) | wc -l)"
 
       - name: Upload TEXT-ONLY Artifact
         uses: actions/upload-artifact@v4
@@ -72,8 +58,8 @@ exe,dll,so,bin,dat,psd,ai,sketch,fig \
           path: android-docs-text/
           retention-days: 7
           compression-level: 6
-          if-no-files-found: warn  # 避免空 artifact 报错
+          if-no-files-found: warn
 
-      - name: Cleanup
+      - name: Cleanup workspace
         if: always()
         run: rm -rf android-docs-text/
