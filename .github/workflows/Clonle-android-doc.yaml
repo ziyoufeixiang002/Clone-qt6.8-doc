@@ -1,64 +1,88 @@
-name: Clone-android-doc
+name: Clone Android API Documentation
 
 on:
-  workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
+  workflow_dispatch:  # 手动触发（推荐）
   # schedule:
-  #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
+  #   - cron: '0 2 * * 0'  # 每周日 2 点自动更新（取消注释前请确认遵守 robots.txt）
 
 jobs:
-  clone-qt-docs:
+  clone-android-docs:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write
     env:
-      TARGET_URL: "https://developer.android.google.cn/"
-      DOWNLOAD_DIR: "qt6.8-doc"
-    
+      TARGET_URL: "https://developer.android.com/reference"
+      DOWNLOAD_DIR: "android-doc"
+      OUTPUT_ARCHIVE: "android-doc.zst"
+
     steps:
-      - name: 🛠️ Setup Environment
+      - name: 🛠️ Checkout Repository (optional, for debugging)
+        uses: actions/checkout@v4
+
+      - name: 📦 Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget ca-certificates
-          mkdir -p $DOWNLOAD_DIR
+          sudo apt-get install -y wget zstd ca-certificates
 
-      - name: 🌐 Download Documentation (Smart Filtering)
+      - name: 📁 Create Download Directory
+        run: mkdir -p "$DOWNLOAD_DIR"
+
+      - name: 🌐 Download Android API Docs (International Site)
         run: |
           wget \
             --recursive \
+            --level=10 \
             --no-clobber \
             --page-requisites \
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains google.cn \
+            --domains=developer.android.com \
             --no-parent \
-            --wait=0.5 \
+            --execute robots=off \
+            --wait=1 \
             --random-wait \
-            --timeout=20 \
-            --tries=2 \
+            --timeout=30 \
+            --tries=3 \
             --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            --header="Accept-Language: en-US,en;q=0.9" \
+            --accept-regex '\.(html?|css|js|txt|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|ttf|otf)$' \
             --reject-regex '\.(mp[34]|avi|mov|wmv|flv|webm|wav|ogg|zip|rar|tar|gz|bz2|xz|7z|iso|dmg|exe|msi|apk|bin|deb|rpm|pdf)$' \
-            --accept-regex '\.(html?|css|js|txt|md|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|eot|ttf|otf)$' \
-            --directory-prefix=$DOWNLOAD_DIR \
-            $TARGET_URL
-        continue-on-error: true  # 容忍个别资源失败（如403/404），保证主流程完成
+            --directory-prefix="$DOWNLOAD_DIR" \
+            "$TARGET_URL"
+        continue-on-error: true  # 允许个别 403/404 不中断
 
-      - name: 📦 Package & Upload Artifact
+      - name: 🧹 Clean Up Query-String Files
         run: |
-          # 清理无用临时文件（wget生成的query参数文件等）
-          find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
-          tar -I 'zstd -T0 --long' -cf qt-docs.zst $DOWNLOAD_DIR
-        shell: bash
+          find "$DOWNLOAD_DIR" -type f -name "*\?*" -delete 2>/dev/null || true
 
-      - name: 📤 Upload to Artifacts
+      - name: 📊 Verify Downloaded Content
+        run: |
+          total_files=$(find "$DOWNLOAD_DIR" -type f | wc -l)
+          html_files=$(find "$DOWNLOAD_DIR" -name "*.html" | wc -l)
+          echo "✅ Total files: $total_files"
+          echo "✅ HTML files: $html_files"
+          if [ "$html_files" -lt 100 ]; then
+            echo "❌ Warning: Fewer than 100 HTML files found. Recursion may have failed."
+            # 列出部分文件用于调试
+            find "$DOWNLOAD_DIR" -name "*.html" | head -n 10
+          fi
+
+      - name: 📦 Compress Documentation
+        run: |
+          if [ ! -d "$DOWNLOAD_DIR" ] || [ -z "$(ls -A "$DOWNLOAD_DIR")" ]; then
+            echo "❌ Download directory is empty!"
+            exit 1
+          fi
+          tar -I 'zstd -T0 --long' -cf "$OUTPUT_ARCHIVE" "$DOWNLOAD_DIR"
+
+      - name: 📤 Upload as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: qt-documentation-offline
-          path: qt-docs.zst
+          name: android-api-docs
+          path: ${{ env.OUTPUT_ARCHIVE }}
           retention-days: 14
-          compression-level: 0  # 已预压缩，跳过二次压缩提速
+          compression-level: 0  # 已预压缩
 
-      - name: 🧹 Cleanup Workspace
-        run: rm -rf $DOWNLOAD_DIR qt-docs.zst
+      - name: 🧹 Cleanup
         if: always()
+        run: |
+          rm -rf "$DOWNLOAD_DIR" "$OUTPUT_ARCHIVE"
