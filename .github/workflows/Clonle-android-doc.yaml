@@ -31,7 +31,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains doc.qt.io \
+            --domains developer.android.google.cn \
             --no-parent \
             --wait=0.5 \
             --random-wait \
