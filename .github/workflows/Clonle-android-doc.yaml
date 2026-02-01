@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://developer.android.google.cn/reference"
+      TARGET_URL: "https://developer.android.google.cn/reference/packages"
       DOWNLOAD_DIR: "android-doc"
     
     steps:
