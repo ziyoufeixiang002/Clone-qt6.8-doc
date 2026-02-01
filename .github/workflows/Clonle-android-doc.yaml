@@ -13,7 +13,7 @@ jobs:
       actions: write
     env:
       TARGET_URL: "https://developer.android.google.cn/"
-      DOWNLOAD_DIR: "android-doc"
+      DOWNLOAD_DIR: "qt6.8-doc"
     
     steps:
       - name: 🛠️ Setup Environment
@@ -31,7 +31,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains=developer.android.google.cn \
+            --domains doc.qt.io \
             --no-parent \
             --wait=0.5 \
             --random-wait \
@@ -48,14 +48,14 @@ jobs:
         run: |
           # 清理无用临时文件（wget生成的query参数文件等）
           find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
-          tar -I 'zstd -T0 --long' -cf android-docs.zst $DOWNLOAD_DIR
+          tar -I 'zstd -T0 --long' -cf qt-docs.zst $DOWNLOAD_DIR
         shell: bash
 
       - name: 📤 Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: android-doc
-          path: android-doc.zst
+          name: qt-documentation-offline
+          path: qt-docs.zst
           retention-days: 14
           compression-level: 0  # 已预压缩，跳过二次压缩提速
 
