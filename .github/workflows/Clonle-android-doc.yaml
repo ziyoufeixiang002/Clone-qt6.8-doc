@@ -48,7 +48,7 @@ jobs:
         run: |
           # 清理无用临时文件（wget生成的query参数文件等）
           find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
-          tar -I 'zstd -T0 --long' -cf qt-docs.zst $DOWNLOAD_DIR
+          tar -I 'zstd -T0 --long' -cf android-docs.zst $DOWNLOAD_DIR
         shell: bash
 
       - name: 📤 Upload to Artifacts
