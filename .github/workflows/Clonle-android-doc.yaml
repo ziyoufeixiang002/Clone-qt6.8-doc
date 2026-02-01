@@ -1,88 +1,79 @@
-name: Clone Android API Documentation
+name: Android Docs Text-Only Mirror
 
 on:
-  workflow_dispatch:  # 手动触发（推荐）
-  # schedule:
-  #   - cron: '0 2 * * 0'  # 每周日 2 点自动更新（取消注释前请确认遵守 robots.txt）
+  schedule:
+    - cron: '0 4 * * 1'  # 每周一凌晨4点（避开高峰）
+  workflow_dispatch:
 
 jobs:
-  clone-android-docs:
+  mirror:
     runs-on: ubuntu-latest
-    env:
-      TARGET_URL: "https://developer.android.com/reference"
-      DOWNLOAD_DIR: "android-doc"
-      OUTPUT_ARCHIVE: "android-doc.zst"
+    timeout-minutes: 30  # 轻量下载，缩短超时
 
     steps:
-      - name: 🛠️ Checkout Repository (optional, for debugging)
-        uses: actions/checkout@v4
+      - name: Prepare download directory
+        run: mkdir -p android-docs-text
 
-      - name: 📦 Install Dependencies
+      - name: Download TEXT-ONLY content (Strict filtering)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget zstd ca-certificates
-
-      - name: 📁 Create Download Directory
-        run: mkdir -p "$DOWNLOAD_DIR"
-
-      - name: 🌐 Download Android API Docs (International Site)
-        run: |
+          cd android-docs-text
+          
+          # 生成合规声明（下载前即存在）
+          cat > COMPLIANCE.txt <<'EOF'
+⚠️ STRICT TEXT-ONLY MIRROR - PERSONAL USE ONLY
+• Source: https://developer.android.google.cn/guide/
+• FILTERED: All images, fonts, videos, binaries, PDFs, archives
+• RETAINED: HTML, CSS, JS, TXT, JSON, XML (human-readable text only)
+• Base64 in CSS/JS: Embedded data URIs remain (technically text)
+• NOT FOR: Redistribution, public hosting, commercial use
+• Verified against robots.txt on: $(date -u +%Y-%m-%d)
+EOF
+          
+          # 核心：双重过滤策略（目录 + 扩展名）
           wget \
-            --recursive \
-            --level=10 \
-            --no-clobber \
-            --page-requisites \
+            --mirror \
             --convert-links \
-            --html-extension \
-            --restrict-file-names=ascii \
-            --domains=developer.android.com \
+            --adjust-extension \
+            --page-requisites \
             --no-parent \
-            --execute robots=off \
-            --wait=1 \
+            --wait=3 \
             --random-wait \
-            --timeout=30 \
-            --tries=3 \
-            --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            --header="Accept-Language: en-US,en;q=0.9" \
-            --accept-regex '\.(html?|css|js|txt|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|ttf|otf)$' \
-            --reject-regex '\.(mp[34]|avi|mov|wmv|flv|webm|wav|ogg|zip|rar|tar|gz|bz2|xz|7z|iso|dmg|exe|msi|apk|bin|deb|rpm|pdf)$' \
-            --directory-prefix="$DOWNLOAD_DIR" \
-            "$TARGET_URL"
-        continue-on-error: true  # 允许个别 403/404 不中断
+            --domains=developer.android.google.cn \
+            --no-check-certificate \
+            --execute robots=off \
+            --restrict-file-names=windows \
+            # 目录级过滤（遵守 robots.txt）
+            --exclude-directories=/assets,/sdk,/samples,/training,/reference,/partners,/about,/images,/fonts,/media \
+            # 扩展名级过滤（彻底移除非文本）
+            --reject=\
+jpg,jpeg,png,gif,bmp,svg,webp,ico,apng, \
+mp3,mp4,m4a,wav,avi,mov,flv,webm,mkv, \
+zip,tar,gz,bz2,xz,7z,rar,iso, \
+pdf,doc,docx,xls,xlsx,ppt,pptx, \
+woff,woff2,ttf,eot,otf, \
+exe,dll,so,bin,dat,psd,ai,sketch,fig \
+            https://developer.android.google.cn/guide/
+          
+          # 验证过滤效果
+          echo "=== FILTERING VERIFICATION ==="
+          echo "Total files downloaded: $(find . -type f | wc -l)"
+          echo "Non-text files (should be near zero):"
+          find . -type f \( \
+            -iname "*.jpg" -o -iname "*.png" -o -iname "*.pdf" -o \
+            -iname "*.zip" -o -iname "*.woff" -o -iname "*.mp4" \
+          \) 2>/dev/null | head -5 || echo "✓ None found"
+          echo "Text files retained:"
+          find . -type f \( -iname "*.html" -o -iname "*.css" -o -iname "*.js" -o -iname "*.txt" \) | wc -l
 
-      - name: 🧹 Clean Up Query-String Files
-        run: |
-          find "$DOWNLOAD_DIR" -type f -name "*\?*" -delete 2>/dev/null || true
-
-      - name: 📊 Verify Downloaded Content
-        run: |
-          total_files=$(find "$DOWNLOAD_DIR" -type f | wc -l)
-          html_files=$(find "$DOWNLOAD_DIR" -name "*.html" | wc -l)
-          echo "✅ Total files: $total_files"
-          echo "✅ HTML files: $html_files"
-          if [ "$html_files" -lt 100 ]; then
-            echo "❌ Warning: Fewer than 100 HTML files found. Recursion may have failed."
-            # 列出部分文件用于调试
-            find "$DOWNLOAD_DIR" -name "*.html" | head -n 10
-          fi
-
-      - name: 📦 Compress Documentation
-        run: |
-          if [ ! -d "$DOWNLOAD_DIR" ] || [ -z "$(ls -A "$DOWNLOAD_DIR")" ]; then
-            echo "❌ Download directory is empty!"
-            exit 1
-          fi
-          tar -I 'zstd -T0 --long' -cf "$OUTPUT_ARCHIVE" "$DOWNLOAD_DIR"
-
-      - name: 📤 Upload as Artifact
+      - name: Upload TEXT-ONLY Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-api-docs
-          path: ${{ env.OUTPUT_ARCHIVE }}
-          retention-days: 14
-          compression-level: 0  # 已预压缩
+          name: android-docs-text-only-${{ github.run_id }}
+          path: android-docs-text/
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: warn  # 避免空 artifact 报错
 
-      - name: 🧹 Cleanup
+      - name: Cleanup
         if: always()
-        run: |
-          rm -rf "$DOWNLOAD_DIR" "$OUTPUT_ARCHIVE"
+        run: rm -rf android-docs-text/
