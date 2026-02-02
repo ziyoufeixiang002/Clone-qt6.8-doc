@@ -31,7 +31,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains=playwright.dev \
+            --domains=doc.qt.io \
             --no-parent \
             --wait=0.5 \
             --random-wait \
