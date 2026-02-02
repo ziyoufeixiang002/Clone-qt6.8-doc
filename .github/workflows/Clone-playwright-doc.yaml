@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://playwright.dev/"
+      TARGET_URL: "https://playwright.dev/docs/intro"
       DOWNLOAD_DIR: "playwright-doc"
     
     steps:
