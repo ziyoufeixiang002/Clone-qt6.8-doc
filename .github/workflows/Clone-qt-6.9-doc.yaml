@@ -1,4 +1,4 @@
-name: Clone-playwright-doc
+name: Clone-qt-6.9-doc
 
 on:
   workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
@@ -6,14 +6,14 @@ on:
   #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
 
 jobs:
-  clone-playwright-doc:
+  clone-qt-6.9-doc:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://playwright.dev/docs/intro"
-      DOWNLOAD_DIR: "playwright-doc"
+      TARGET_URL: "https://doc.qt.io/qt-6.9/"
+      DOWNLOAD_DIR: "qt-6.9-doc"
     
     steps:
       - name: 🛠️ Setup Environment
@@ -48,17 +48,17 @@ jobs:
         run: |
           # 清理无用临时文件（wget生成的query参数文件等）
           find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
-          tar -I 'zstd -T0 --long' -cf playwright-doc.zst $DOWNLOAD_DIR
+          tar -I 'zstd -T0 --long' -cf qt-6.9-doc.zst $DOWNLOAD_DIR
         shell: bash
 
       - name: 📤 Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: qt-documentation-offline
-          path: playwright-doc.zst
+          path: qt-6.9-doc.zst
           retention-days: 14
           compression-level: 0  # 已预压缩，跳过二次压缩提速
 
       - name: 🧹 Cleanup Workspace
-        run: rm -rf $DOWNLOAD_DIR playwright-doc.zst
+        run: rm -rf $DOWNLOAD_DIR qt-6.9-doc.zst
         if: always()
