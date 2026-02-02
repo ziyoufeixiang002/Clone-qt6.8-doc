@@ -6,7 +6,7 @@ on:
   #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
 
 jobs:
-  clone-qt-6.9-doc:
+  clone-qt-doc:
     runs-on: ubuntu-latest
     permissions:
       contents: read
