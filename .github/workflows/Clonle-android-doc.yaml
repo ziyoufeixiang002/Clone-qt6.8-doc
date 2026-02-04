@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://kotlinlang.org/"
+      TARGET_URL: "https://help.zwsoft.cn/help/helpres/ZWCAD_zh-CN_2026/ZWCAD_2026_Chs/OriginalData/ZWCAD/html/ZWCAD.htm?pid=U2FsdGVkX19xcF6ebpIed4c3wg2gp2xGxfCi05aQK6su%2Fvpgm70NuXklMuihvx41dCk8fMJyO3cJUca%2BXnPOTjhRBwb1VkH4H%2FvlZ9ecf%2BlVPUClg7ZcfxPj431D7GiEh721GcUmQxc8sHdG76pq%2BDBRvogRRur3I1Kx1Vn3f8s2%2B%2BsLUFhTqA5k6qHdPhoCcu1SSIVj%2B7ZQ6FY8eFXfzIVODqgeMp9LkPMlQlQf7CaqK1ljY0Vvr%2BF7gQwokjGG%2Bs6ipDki0Ti3s9Hrs1Lz1WyLi0NdZYQHaZnQG8yuarNnIpVs9r6ILvMN8BPCToCVFEynPXkpCmFdIgGZn4twrKezT9%2Bj%2BOd52UcVh5rc#pdt_zwcad2026zhcn_n00001"
       DOWNLOAD_DIR: "android-doc"
     
     steps:
@@ -32,7 +32,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains=kotlinlang.org \
+            --domains=help.zwsoft.cn \
             --no-parent \
             --wait=0.5 \
             --random-wait \
