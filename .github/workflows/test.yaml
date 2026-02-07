@@ -1,4 +1,5 @@
-name: test01
+# .github/workflows/generic-site-mirror.yml
+name: '🌐 通用网站镜像工作流'
 
 on:
   workflow_dispatch:
@@ -6,81 +7,48 @@ on:
       target_url:
         description: 'https://www.opendcl.com/HelpFiles/'
         required: true
-        default: 'https://example.com/'
+        default: 'https://www.opendcl.com/HelpFiles/'
       wait_seconds:
-        description: '请求间隔秒数 (建议 ≥1，遵守爬虫礼仪)'
+        description: '请求间隔秒数 (建议 ≥1)'
         required: false
         default: '1'
       retention_days:
         description: 'Artifact 保留天数 (1-90)'
         required: false
         default: '30'
-  # 取消注释启用定时任务 (示例：每周日凌晨 2 点 UTC)
-  # schedule:
-  #   - cron: '0 2 * * 0'
 
 jobs:
   mirror:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90  # 大型网站建议提高超时
+    runs-on: 'ubuntu-22.04'
+    timeout-minutes: 90
 
     steps:
-      - name: 🔧 安装 wget2
+      - name: '🔧 安装 wget2'
         run: |
           sudo apt-get update
           sudo apt-get install -y wget2 libnghttp2-14
           wget2 --version
 
-      - name: 🌐 镜像网站 (核心配置区)
+      - name: '🌐 镜像网站'
         env:
-          # ═══════════════════════════════════════════════════════════════
-          # ❗️【修改此处 1/4】目标网站基础配置
-          # ═══════════════════════════════════════════════════════════════
-          TARGET_URL: ${{ github.event.inputs.target_url }}  # 通过 workflow_dispatch 输入覆盖
-          WAIT_SECONDS: ${{ github.event.inputs.wait_seconds }}
-          
-          # ═══════════════════════════════════════════════════════════════
-          # ❗️【修改此处 2/4】排除规则 (按需调整)
-          # ═══════════════════════════════════════════════════════════════
-          # 📌 说明：
-          #   - 使用单引号避免 YAML 转义问题
-          #   - 正则匹配 URL 路径结尾 (含查询参数)
-          #   - 保留网页必需资源：HTML/CSS/JS/图片/字体/JSON/XML
-          # 🌰 常见场景示例 (取消对应行注释并删除其他行)：
-          #   Kotlin 官网: '\.(exe|dll|...|otf)(\?[^#]*)?$'  # (当前配置)
-          #   文档站精简: '\.(mp4|avi|mov|zip|rar|7z|pdf|docx?|xlsx?)(\?[^#]*)?$'
-          #   仅排除大文件: '\.(zip|rar|7z|tar|gz|iso|dmg|exe|msi|apk)(\?[^#]*)?$'
-          #   保留 PDF:    '\.(exe|dll|zip|rar|7z|tar|gz|iso|dmg|msi|apk)(\?[^#]*)?$'  # 移除 pdf
+          TARGET_URL: '${{ github.event.inputs.target_url }}'
+          WAIT_SECONDS: '${{ github.event.inputs.wait_seconds }}'
+          # ❗️【修改此处 1/3】排除规则 (按需调整)
+          # 保留: HTML/CSS/JS/图片/字体/JSON/XML
+          # 排除: 可执行文件/音视频/压缩包/安装包/大型文档
           REJECT_REGEX: '\.(exe|dll|so|bin|msi|dmg|pkg|deb|rpm|apk|app|img|sh|run|jar|cab|msu|mp[34]|avi|mov|wmv|flv|wav|ogg|webm|m4a|aac|mkv|zip|rar|7z|tar|gz|bz2|xz|tgz|iso|php|asp|jsp|cfm|pdf|docx?|xlsx?|pptx?|psd|ai|ttf|otf)(\?[^#]*)?$'
-          
-          # ═══════════════════════════════════════════════════════════════
-          # ❗️【修改此处 3/4】跨域资源域名 (逗号分隔)
-          # ═══════════════════════════════════════════════════════════════
-          # 📌 说明：
-          #   - 仅当网站资源分布在多个域名时需要添加
-          #   - 示例：
-          #       Kotlin: kotlinlang.org,resources.jetbrains.com,cdn.jsdelivr.net
-          #       Hugo 文档: hugo.io,themes.gohugo.io,cdn.jsdelivr.net
-          #       留空仅抓主站: ${TARGET_DOMAIN}  (需替换为实际域名)
+          # ❗️【修改此处 2/3】跨域资源域名 (逗号分隔)
           DOMAINS: 'www.opendcl.com'
-          
-          # ═══════════════════════════════════════════════════════════════
-          # ❗️【修改此处 4/4】User-Agent (合规必备)
-          # ═══════════════════════════════════════════════════════════════
-          # 📌 说明：
-          #   - 必须包含项目标识和联系方式
-          #   - 建议格式: "ProjectName/Version (+https://your-contact-url)"
-          USER_AGENT: "SiteMirrorBot/1.0 (+https://github.com/${{ github.repository }})"
+          # ❗️【修改此处 3/3】User-Agent (必须包含联系方式)
+          USER_AGENT: 'SiteMirrorBot/1.0 (+https://github.com/${{ github.repository }})'
         run: |
           echo "🚀 开始镜像: $TARGET_URL"
-          echo "⏱️  请求间隔: ${WAIT_SECONDS}秒 | 排除规则: ${REJECT_REGEX:0:50}..."
-          echo "🌐 跨域域名: ${DOMAINS}"
+          echo "⏱️  请求间隔: ${WAIT_SECONDS}秒"
           
-          # 创建带时间戳的目录 (避免覆盖)
           MIRROR_DIR="mirror-$(date +%Y%m%d-%H%M%S)"
           mkdir -p "$MIRROR_DIR"
           
-          # 执行镜像 (关键: --quiet 减少日志，错误仍会显示)
+          # 执行 wget2 镜像
           wget2 \
             --mirror \
             --page-requisites \
@@ -94,53 +62,46 @@ jobs:
             --user-agent="$USER_AGENT" \
             --directory-prefix="$MIRROR_DIR" \
             --quiet \
-            "$TARGET_URL" || echo "⚠️ 镜像完成 (含警告，可能受 robots.txt 限制)"
+            "$TARGET_URL" || echo "⚠️ 镜像完成 (含警告)"
           
-          # 生成配置报告 (存入镜像目录，随 Artifact 保存)
-          cat > "$MIRROR_DIR/MIRROR_CONFIG.md" <<'REPORT_EOF'
-# 网站镜像配置报告
-**生成时间**: $(date -u '+%Y-%m-%d %H:%M UTC')  
-**源站 URL**: $TARGET_URL  
-**合规声明**: 
-- 遵守 robots.txt 规则
-- 请求间隔 ${WAIT_SECONDS} 秒
-- User-Agent: $USER_AGENT
-
-## 排除规则
-\`\`\`
-$REJECT_REGEX
-\`\`\`
-
-## 跨域域名
-\`\`\`
-$DOMAINS
-\`\`\`
-
-> 本镜像仅用于存档/离线查阅，请遵守目标网站使用条款。
-REPORT_EOF
+          # ✅ 安全生成配置报告 (避免 here-document 缩进问题)
+          printf '%s\n' \
+            '# 网站镜像配置报告' \
+            "**生成时间**: $(date -u '+%Y-%m-%d %H:%M UTC')" \
+            "**源站 URL**: $TARGET_URL" \
+            '**合规声明**:' \
+            '  - 遵守 robots.txt 规则' \
+            "  - 请求间隔 ${WAIT_SECONDS} 秒" \
+            "  - User-Agent: $USER_AGENT" \
+            '' \
+            '## 排除规则' \
+            '```' \
+            "$REJECT_REGEX" \
+            '```' \
+            '' \
+            '## 跨域域名' \
+            '```' \
+            "$DOMAINS" \
+            '```' \
+            '' \
+            '> 本镜像仅用于存档/离线查阅，请遵守目标网站使用条款。' \
+            > "$MIRROR_DIR/MIRROR_CONFIG.md"
           
-          # 统计并导出环境变量供后续步骤使用
-          echo "MIRROR_DIR=$MIRROR_DIR" >> $GITHUB_ENV
-          echo "FILE_COUNT=$(find \"$MIRROR_DIR\" -type f | wc -l)" >> $GITHUB_ENV
-          echo "TOTAL_SIZE=$(du -sh \"$MIRROR_DIR\" 2>/dev/null | cut -f1)" >> $GITHUB_ENV
+          # 导出统计信息
+          echo "MIRROR_DIR=$MIRROR_DIR" >> "$GITHUB_ENV"
+          echo "FILE_COUNT=$(find \"$MIRROR_DIR\" -type f | wc -l)" >> "$GITHUB_ENV"
+          echo "TOTAL_SIZE=$(du -sh \"$MIRROR_DIR\" | cut -f1)" >> "$GITHUB_ENV"
 
-      - name: 📤 上传为 Artifact
-        uses: actions/upload-artifact@v4
+      - name: '📤 上传为 Artifact'
+        uses: 'actions/upload-artifact@v4'
         with:
-          name: site-mirror-${{ github.run_id }}
-          path: ${{ env.MIRROR_DIR }}
-          retention-days: ${{ github.event.inputs.retention_days || 30 }}
-          # compression-level: 6  # 如需加速上传可取消注释 (0-9)
+          name: 'site-mirror-${{ github.run_id }}'
+          path: '${{ env.MIRROR_DIR }}'
+          retention-days: '${{ github.event.inputs.retention_days }}'
 
-      - name: 📊 任务摘要
+      - name: '📊 任务摘要'
         run: |
-          echo "✅ 镜像任务完成!"
-          echo "📁 Artifact 名称: site-mirror-${{ github.run_id }}"
-          echo "📦 文件数量: ${{ env.FILE_COUNT }}"
-          echo "📊 总大小: ${{ env.TOTAL_SIZE }}"
-          echo "🔗 下载路径: Actions → 本次运行 → Artifacts"
-          echo ""
-          echo "💡 提示:"
-          echo "  1. 如需部署到 GitHub Pages，参考: https://docs.github.com/en/pages"
-          echo "  2. 调整排除规则请修改工作流中 '【修改此处 2/4】' 部分"
-          echo "  3. 检查 MIRROR_CONFIG.md 了解本次镜像配置细节"
+          echo "✅ 镜像完成!"
+          echo "📁 Artifact: site-mirror-${{ github.run_id }}"
+          echo "📦 文件数: ${{ env.FILE_COUNT }}"
+          echo "📊 大小: ${{ env.TOTAL_SIZE }}"
