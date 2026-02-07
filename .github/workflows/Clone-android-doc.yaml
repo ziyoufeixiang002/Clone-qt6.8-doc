@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://developer.android.google.cn/studio/intro?hl=zh-cn"
+      TARGET_URL: "https://developer.android.google.cn/studio/intro"
       DOWNLOAD_DIR: "qt6.8-doc"
     
     steps:
