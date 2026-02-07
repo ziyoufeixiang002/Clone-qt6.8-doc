@@ -1,4 +1,4 @@
-name: Clone-nodejs-doc
+name: Clone-vmp-doc
 
 on:
   workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://nodejs.org/docs/latest/api/"
+      TARGET_URL: "https://vmpsoft.com/vmprotect/user-manual"
       DOWNLOAD_DIR: "android-doc"
     
     steps:
@@ -32,7 +32,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains=nodejs.org \
+            --domains=vmpsoft.com \
             --no-parent \
             --wait=0.5 \
             --random-wait \
