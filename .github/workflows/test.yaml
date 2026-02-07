@@ -1,4 +1,3 @@
-# .github/workflows/generic-site-mirror.yml
 name: '🌐 通用网站镜像工作流'
 
 on:
