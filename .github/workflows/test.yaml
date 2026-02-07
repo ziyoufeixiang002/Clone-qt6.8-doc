@@ -1,65 +1,112 @@
-name: Clone-vmp-doc
+name: vmp
 
 on:
-  workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
-  # schedule:
-  #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'  # 每月第一天运行一次
+
+env:
+  PYSIDE_VERSION: '6.10.0'
+  DOCS_BASE_URL: 'https://vmpsoft.com/vmprotect/user-manual'
 
 jobs:
-  clone-qt-docs:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: write
-    env:
-      TARGET_URL: "https://vmpsoft.com/vmprotect/user-manual"
-      DOWNLOAD_DIR: "android-doc"
+  download-documentation:
+    name: Download PySide6 Docs
+    runs-on: ubuntu-22.04
     
     steps:
-      - name: 🛠️ Setup Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget ca-certificates
-          mkdir -p $DOWNLOAD_DIR
-
-      - name: 🌐 Download Documentation (Smart Filtering)
-        run: |
-          wget \
-            --recursive \
-            --level=10 \
-            --no-clobber \
-            --page-requisites \
-            --convert-links \
-            --html-extension \
-            --restrict-file-names=ascii \
-            --domains=vmpsoft.com \
-            --no-parent \
-            --wait=0.5 \
-            --random-wait \
-            --timeout=20 \
-            --tries=2 \
-            --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
-            --reject-regex '\.(mp[34]|avi|mov|wmv|flv|webm|wav|ogg|zip|rar|tar|gz|bz2|xz|7z|iso|dmg|exe|msi|apk|bin|deb|rpm|pdf)$' \
-            --accept-regex '\.(html?|css|js|txt|md|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|eot|ttf|otf)$' \
-            --directory-prefix=$DOWNLOAD_DIR \
-            $TARGET_URL
-        continue-on-error: true  # 容忍个别资源失败（如403/404），保证主流程完成
-
-      - name: 📦 Package & Upload Artifact
-        run: |
-          # 清理无用临时文件（wget生成的query参数文件等）
-          find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
-          tar -I 'zstd -T0 --long' -cf android-doc.zst $DOWNLOAD_DIR
-        shell: bash
-
-      - name: 📤 Upload to Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: android-doc
-          path: android-doc.zst
-          retention-days: 14
-          compression-level: 0  # 已预压缩，跳过二次压缩提速
-
-      - name: 🧹 Cleanup Workspace
-        run: rm -rf $DOWNLOAD_DIR qt-docs.zst
-        if: always()
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Install wget
+      run: sudo apt-get update && sudo apt-get install -y wget
+        
+    - name: Download PySide6 documentation using wget
+      run: |
+        # 创建输出目录
+        mkdir -p pyside6-docs
+        
+        # 使用wget进行聚焦镜像，只下载PySide6相关内容
+        wget --mirror \
+             --convert-links \
+             --adjust-extension \
+             --page-requisites \
+             --no-parent \
+             --no-host-directories \
+             --restrict-file-names=windows \
+             --reject-regex=".*\.(svg|png|jpg|jpeg|gif|ico|bmp|webp|tiff|psd|ai|eps|raw|mp4|avi|mov|wmv|flv|mkv|webm|m4v|mpg|mpeg|3gp|mp3|wav|flac|aac|ogg|wma|m4a|aiff|pcm|midi)$" \
+             --accept-regex=".*qtforpython-6.*|.*pyside6.*|.*shiboken6.*" \
+             --wait=1 \
+             --random-wait \
+             --limit-rate=1M \
+             --timeout=30 \
+             --tries=3 \
+             -e robots=off \
+             --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
+             --directory-prefix=pyside6-docs \
+             --level=5 \
+             "$DOCS_BASE_URL" || echo "wget镜像完成或有部分错误"
+        
+        echo "wget下载完成"
+        
+    - name: Create index page
+      run: |
+        # 创建简单的索引页面
+        cat > pyside6-docs/index.html << EOF
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>PySide6 $PYSIDE_VERSION Documentation</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                h1 { color: #333; }
+                ul { list-style-type: none; padding: 0; }
+                li { margin: 10px 0; }
+                a { text-decoration: none; color: #0066cc; }
+                a:hover { text-decoration: underline; }
+            </style>
+        </head>
+        <body>
+            <h1>PySide6 $PYSIDE_VERSION Documentation</h1>
+            <p>离线文档下载于: $(date)</p>
+            <p><a href="qtforpython-6/index.html">查看完整文档</a></p>
+            <p><em>Note: This is a focused mirror containing only PySide6 related documentation.</em></p>
+            <p><strong>Filtered resources:</strong> Images, videos, audio files and icons have been excluded to reduce download size.</p>
+        </body>
+        </html>
+        EOF
+        
+    - name: Archive downloaded documentation
+      uses: actions/upload-artifact@v4
+      with:
+        name: pyside6-offline-docs
+        path: pyside6-docs/
+        retention-days: 90
+        
+    - name: Create documentation summary
+      run: |
+        echo "### PySide6 离线文档下载摘要" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**下载日期:** $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**PySide6 版本:** ${{ env.PYSIDE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**源网址:** ${{ env.DOCS_BASE_URL }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**下载方法:**" >> $GITHUB_STEP_SUMMARY
+        echo "- wget聚焦镜像（只下载PySide6相关内容）" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**过滤的资源:**" >> $GITHUB_STEP_SUMMARY
+        echo "- 图片文件: svg, png, jpg, jpeg, gif, ico, bmp, webp, tiff, psd, ai, eps, raw" >> $GITHUB_STEP_SUMMARY
+        echo "- 视频文件: mp4, avi, mov, wmv, flv, mkv, webm, m4v, mpg, mpeg, 3gp" >> $GITHUB_STEP_SUMMARY
+        echo "- 音频文件: mp3, wav, flac, aac, ogg, wma, m4a, aiff, pcm, midi" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**下载设置:**" >> $GITHUB_STEP_SUMMARY
+        echo "- 只接受包含 'qtforpython-6', 'pyside6', 'shiboken6' 的URL" >> $GITHUB_STEP_SUMMARY
+        echo "- 递归深度: 5层" >> $GITHUB_STEP_SUMMARY
+        echo "- 限速: 1MB/s" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # 统计下载的文件数量
+        echo "**文件统计:**" >> $GITHUB_STEP_SUMMARY
+        echo "- HTML文件: $(find pyside6-docs -name '*.html' | wc -l) 个" >> $GITHUB_STEP_SUMMARY
+        echo "- 总文件数: $(find pyside6-docs -type f | wc -l) 个" >> $GITHUB_STEP_SUMMARY
+        echo "- 目录大小: $(du -sh pyside6-docs | cut -f1)" >> $GITHUB_STEP_SUMMARY
