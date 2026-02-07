@@ -1,106 +1,65 @@
-name: '🌐 通用网站镜像工作流'
+name: Clone-nodejs-doc
 
 on:
-  workflow_dispatch:
-    inputs:
-      target_url:
-        description: 'https://www.opendcl.com/HelpFiles/'
-        required: true
-        default: 'https://www.opendcl.com/HelpFiles/'
-      wait_seconds:
-        description: '请求间隔秒数 (建议 ≥1)'
-        required: false
-        default: '1'
-      retention_days:
-        description: 'Artifact 保留天数 (1-90)'
-        required: false
-        default: '30'
+  workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
+  # schedule:
+  #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
 
 jobs:
-  mirror:
-    runs-on: 'ubuntu-22.04'
-    timeout-minutes: 90
-
+  clone-qt-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    env:
+      TARGET_URL: "https://nodejs.org/docs/latest/api/"
+      DOWNLOAD_DIR: "android-doc"
+    
     steps:
-      - name: '🔧 安装 wget2'
+      - name: 🛠️ Setup Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget2 libnghttp2-14
-          wget2 --version
+          sudo apt-get install -y wget ca-certificates
+          mkdir -p $DOWNLOAD_DIR
 
-      - name: '🌐 镜像网站'
-        env:
-          TARGET_URL: '${{ github.event.inputs.target_url }}'
-          WAIT_SECONDS: '${{ github.event.inputs.wait_seconds }}'
-          # ❗️【修改此处 1/3】排除规则 (按需调整)
-          # 保留: HTML/CSS/JS/图片/字体/JSON/XML
-          # 排除: 可执行文件/音视频/压缩包/安装包/大型文档
-          REJECT_REGEX: '\.(exe|dll|so|bin|msi|dmg|pkg|deb|rpm|apk|app|img|sh|run|jar|cab|msu|mp[34]|avi|mov|wmv|flv|wav|ogg|webm|m4a|aac|mkv|zip|rar|7z|tar|gz|bz2|xz|tgz|iso|php|asp|jsp|cfm|pdf|docx?|xlsx?|pptx?|psd|ai|ttf|otf)(\?[^#]*)?$'
-          # ❗️【修改此处 2/3】跨域资源域名 (逗号分隔)
-          DOMAINS: 'www.opendcl.com'
-          # ❗️【修改此处 3/3】User-Agent (必须包含联系方式)
-          USER_AGENT: 'SiteMirrorBot/1.0 (+https://github.com/${{ github.repository }})'
+      - name: 🌐 Download Documentation (Smart Filtering)
         run: |
-          echo "🚀 开始镜像: $TARGET_URL"
-          echo "⏱️  请求间隔: ${WAIT_SECONDS}秒"
-          
-          MIRROR_DIR="mirror-$(date +%Y%m%d-%H%M%S)"
-          mkdir -p "$MIRROR_DIR"
-          
-          # 执行 wget2 镜像
-          wget2 \
-            --mirror \
+          wget \
+            --recursive \
+            --level=10 \
+            --no-clobber \
             --page-requisites \
             --convert-links \
-            --adjust-extension \
-            --span-hosts \
-            --domains="$DOMAINS" \
-            --ignore-case \
-            --reject-regex="$REJECT_REGEX" \
-            --wait="$WAIT_SECONDS" \
-            --user-agent="$USER_AGENT" \
-            --directory-prefix="$MIRROR_DIR" \
-            --quiet \
-            "$TARGET_URL" || echo "⚠️ 镜像完成 (含警告)"
-          
-          # ✅ 安全生成配置报告 (避免 here-document 缩进问题)
-          printf '%s\n' \
-            '# 网站镜像配置报告' \
-            "**生成时间**: $(date -u '+%Y-%m-%d %H:%M UTC')" \
-            "**源站 URL**: $TARGET_URL" \
-            '**合规声明**:' \
-            '  - 遵守 robots.txt 规则' \
-            "  - 请求间隔 ${WAIT_SECONDS} 秒" \
-            "  - User-Agent: $USER_AGENT" \
-            '' \
-            '## 排除规则' \
-            '```' \
-            "$REJECT_REGEX" \
-            '```' \
-            '' \
-            '## 跨域域名' \
-            '```' \
-            "$DOMAINS" \
-            '```' \
-            '' \
-            '> 本镜像仅用于存档/离线查阅，请遵守目标网站使用条款。' \
-            > "$MIRROR_DIR/MIRROR_CONFIG.md"
-          
-          # 导出统计信息
-          echo "MIRROR_DIR=$MIRROR_DIR" >> "$GITHUB_ENV"
-          echo "FILE_COUNT=$(find \"$MIRROR_DIR\" -type f | wc -l)" >> "$GITHUB_ENV"
-          echo "TOTAL_SIZE=$(du -sh \"$MIRROR_DIR\" | cut -f1)" >> "$GITHUB_ENV"
+            --html-extension \
+            --restrict-file-names=ascii \
+            --domains=nodejs.org \
+            --no-parent \
+            --wait=0.5 \
+            --random-wait \
+            --timeout=20 \
+            --tries=2 \
+            --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            --reject-regex '\.(mp[34]|avi|mov|wmv|flv|webm|wav|ogg|zip|rar|tar|gz|bz2|xz|7z|iso|dmg|exe|msi|apk|bin|deb|rpm|pdf)$' \
+            --accept-regex '\.(html?|css|js|txt|md|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|eot|ttf|otf)$' \
+            --directory-prefix=$DOWNLOAD_DIR \
+            $TARGET_URL
+        continue-on-error: true  # 容忍个别资源失败（如403/404），保证主流程完成
 
-      - name: '📤 上传为 Artifact'
-        uses: 'actions/upload-artifact@v4'
-        with:
-          name: 'site-mirror-${{ github.run_id }}'
-          path: '${{ env.MIRROR_DIR }}'
-          retention-days: '${{ github.event.inputs.retention_days }}'
-
-      - name: '📊 任务摘要'
+      - name: 📦 Package & Upload Artifact
         run: |
-          echo "✅ 镜像完成!"
-          echo "📁 Artifact: site-mirror-${{ github.run_id }}"
-          echo "📦 文件数: ${{ env.FILE_COUNT }}"
-          echo "📊 大小: ${{ env.TOTAL_SIZE }}"
+          # 清理无用临时文件（wget生成的query参数文件等）
+          find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
+          tar -I 'zstd -T0 --long' -cf android-doc.zst $DOWNLOAD_DIR
+        shell: bash
+
+      - name: 📤 Upload to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-doc
+          path: android-doc.zst
+          retention-days: 14
+          compression-level: 0  # 已预压缩，跳过二次压缩提速
+
+      - name: 🧹 Cleanup Workspace
+        run: rm -rf $DOWNLOAD_DIR qt-docs.zst
+        if: always()
