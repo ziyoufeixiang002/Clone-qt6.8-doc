@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://developer.adobe.com/photoshop/uxp/2022/"
+      TARGET_URL: "https://developer.adobe.com/photoshop/uxp/2022/guides/"
       DOWNLOAD_DIR: "qt6.8-doc"
     
     steps:
@@ -26,7 +26,6 @@ jobs:
         run: |
           wget \
             --recursive \
-            --level=15 \
             --no-clobber \
             --page-requisites \
             --convert-links \
