@@ -26,6 +26,7 @@ jobs:
         run: |
           wget \
             --recursive \
+            --level=15 \
             --no-clobber \
             --page-requisites \
             --convert-links \
