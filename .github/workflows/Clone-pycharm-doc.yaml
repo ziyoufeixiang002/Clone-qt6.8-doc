@@ -1,0 +1,64 @@
+name: Clone-pycharm-doc
+
+on:
+  workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
+  # schedule:
+  #   - cron: '0 2 * * 0'  # 如需每周日 2 点自动更新，取消注释（请先确认遵守 robots.txt）
+
+jobs:
+  clone-qt-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    env:
+      TARGET_URL: "https://www.jetbrains.com/zh-cn/help/pycharm/getting-started.html"
+      DOWNLOAD_DIR: "qt6.8-doc"
+    
+    steps:
+      - name: 🛠️ Setup Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget ca-certificates
+          mkdir -p $DOWNLOAD_DIR
+
+      - name: 🌐 Download Documentation (Smart Filtering)
+        run: |
+          wget \
+            --recursive \
+            --no-clobber \
+            --page-requisites \
+            --convert-links \
+            --html-extension \
+            --restrict-file-names=ascii \
+            --domains=www.jetbrains.com \
+            --no-parent \
+            --wait=0.5 \
+            --random-wait \
+            --timeout=20 \
+            --tries=2 \
+            --user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+            --reject-regex '\.(mp[34]|avi|mov|wmv|flv|webm|wav|ogg|zip|rar|tar|gz|bz2|xz|7z|iso|dmg|exe|msi|apk|bin|deb|rpm|pdf)$' \
+            --accept-regex '\.(html?|css|js|txt|md|json|xml|svg|png|jpg|jpeg|gif|ico|woff2?|eot|ttf|otf)$' \
+            --directory-prefix=$DOWNLOAD_DIR \
+            $TARGET_URL
+        continue-on-error: true  # 容忍个别资源失败（如403/404），保证主流程完成
+
+      - name: 📦 Package & Upload Artifact
+        run: |
+          # 清理无用临时文件（wget生成的query参数文件等）
+          find $DOWNLOAD_DIR -type f -name "*\?*" -delete 2>/dev/null || true
+          tar -I 'zstd -T0 --long' -cf qt-docs.zst $DOWNLOAD_DIR
+        shell: bash
+
+      - name: 📤 Upload to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qt-documentation-offline
+          path: qt-docs.zst
+          retention-days: 14
+          compression-level: 0  # 已预压缩，跳过二次压缩提速
+
+      - name: 🧹 Cleanup Workspace
+        run: rm -rf $DOWNLOAD_DIR qt-docs.zst
+        if: always()
