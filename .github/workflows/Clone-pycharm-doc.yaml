@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://www.jetbrains.com/zh-cn/help/pycharm/getting-started.html"
+      TARGET_URL: "https://www.jetbrains.com/zh-cn/help/pycharm"
       DOWNLOAD_DIR: "qt6.8-doc"
     
     steps:
