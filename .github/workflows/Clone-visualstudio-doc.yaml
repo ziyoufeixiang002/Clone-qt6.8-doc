@@ -31,7 +31,7 @@ jobs:
             --convert-links \
             --html-extension \
             --restrict-file-names=ascii \
-            --domains=www.jetbrains.com \
+            --domains=code.visualstudio.com \
             --no-parent \
             --wait=0.5 \
             --random-wait \
