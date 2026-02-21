@@ -1,4 +1,4 @@
-name: Clone-pycharm-doc
+name: Clone-visualstudio-doc
 
 on:
   workflow_dispatch:  # 手动触发（推荐：避免定时任务造成服务器压力）
@@ -12,7 +12,7 @@ jobs:
       contents: read
       actions: write
     env:
-      TARGET_URL: "https://www.jetbrains.com/help/pycharm"
+      TARGET_URL: "https://code.visualstudio.com/docs"
       DOWNLOAD_DIR: "qt6.8-doc"
     
     steps:
